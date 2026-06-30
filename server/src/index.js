@@ -6,16 +6,49 @@ const { Resend } = require("resend");
 
 const app = express();
 
+// ─── Middleware (must come before routes) ─────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+// ─── Env var validation (fail loud, not silent) ────────────────────────────────
+// If these are missing/misnamed on Render, every Supabase call below will fail
+// with a vague error. Log clearly at boot so it's obvious in Render logs.
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+
+if (!SUPABASE_URL) {
+  console.error("❌ Missing env var: SUPABASE_URL — set this in Render's Environment tab.");
+}
+if (!SUPABASE_KEY) {
+  console.error("❌ Missing env var: SUPABASE_KEY — set this in Render's Environment tab.");
+}
+console.log("SUPABASE_URL:", SUPABASE_URL ? "FOUND" : "NOT FOUND");
+console.log("SUPABASE_KEY:", SUPABASE_KEY ? "FOUND" : "NOT FOUND");
+
+let supabase;
+try {
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (err) {
+  console.error("❌ Failed to create Supabase client:", err.message);
+  // Don't crash the whole process — let routes return clear 500s instead of
+  // the server failing to boot, which is harder to diagnose from Render logs.
+  supabase = null;
+}
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 console.log("API KEY:", process.env.RESEND_API_KEY ? "FOUND" : "NOT FOUND");
+
+// Small helper so every route can bail out clearly if the client never initialized
+function requireSupabase(res) {
+  if (!supabase) {
+    res.status(500).json({
+      success: false,
+      message: "Supabase client not initialized — check SUPABASE_URL / SUPABASE_KEY env vars on the server.",
+    });
+    return false;
+  }
+  return true;
+}
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
@@ -385,8 +418,6 @@ app.patch("/api/applications/:id/reject", async (req, res) => {
 });
 
 // ─── Partner Application Submission ──────────────────────────────────────────
-// POST /api/apply
-// Body: { full_name, email, phone, linkedin, agency_name, website, years_exp, shopify_clients, message }
 app.post("/api/apply", async (req, res) => {
   try {
     const {
@@ -445,7 +476,6 @@ app.post("/api/apply", async (req, res) => {
 // ─── Admin Dashboard ──────────────────────────────────────────────────────────
 app.get("/api/admin/dashboard", async (req, res) => {
   try {
-    // Stats
     const { count: totalPartners } = await supabase
       .from("partners")
       .select("*", { count: "exact", head: true });
@@ -473,7 +503,6 @@ app.get("/api/admin/dashboard", async (req, res) => {
       }
     });
 
-    // Top Partners — aggregate won deal commission per partner
     const { data: partners } = await supabase
       .from("partners")
       .select("id, agency_name, tier, commission_rate");
@@ -521,7 +550,6 @@ app.get("/api/admin/dashboard", async (req, res) => {
         tier: p.tier,
       }));
 
-    // Pipeline — group deals by stage
     const STAGE_CONFIG = [
       { stage: "Contacted", key: 1, color: "#94a3b8" },
       { stage: "Demo Scheduled", key: 2, color: "#f59e0b" },
@@ -564,10 +592,8 @@ app.get("/api/admin/dashboard", async (req, res) => {
       color: s.color,
     }));
 
-    // Attention items — derived from live data
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
     const stalledDeals = (deals || []).filter((d) => {
       const stageNum = stageToNum(d.stage);
@@ -673,8 +699,6 @@ app.get("/api/admin/partners", async (req, res) => {
   }
 });
 
-// POST /api/admin/partners — simple Add Partner (no auth, no password, no email)
-// Body: { full_name, email, agency_name }
 app.post("/api/admin/partners", async (req, res) => {
   try {
     const { full_name, email, agency_name } = req.body;
@@ -822,7 +846,6 @@ app.patch("/api/admin/deals/:id/stage", async (req, res) => {
     const { id } = req.params;
     const { stage } = req.body;
 
-    // Update deal stage
     const { data: deal, error } = await supabase
       .from("deals")
       .update({ stage })
@@ -832,10 +855,8 @@ app.patch("/api/admin/deals/:id/stage", async (req, res) => {
 
     if (error) throw error;
 
-    // If deal is WON, create commission automatically
     if (stage === "Won") {
 
-      // Check if commission already exists
       const { data: existing } = await supabase
         .from("commissions")
         .select("id")
@@ -872,7 +893,6 @@ app.patch("/api/admin/deals/:id/stage", async (req, res) => {
 
 // ─── Admin Payouts ────────────────────────────────────────────────────────────
 
-// GET /api/admin/payouts — pending commissions grouped by partner
 app.get("/api/admin/payouts", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -931,7 +951,6 @@ app.get("/api/admin/payouts", async (req, res) => {
   }
 });
 
-// GET /api/admin/payouts/history — paid commissions
 app.get("/api/admin/payouts/history", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -975,7 +994,6 @@ app.get("/api/admin/payouts/history", async (req, res) => {
   }
 });
 
-// POST /api/admin/payouts/mark-paid — mark one partner's pending commissions as paid
 app.post("/api/admin/payouts/mark-paid", async (req, res) => {
   try {
     const { partner_id } = req.body;
@@ -1004,7 +1022,6 @@ app.post("/api/admin/payouts/mark-paid", async (req, res) => {
   }
 });
 
-// POST /api/admin/payouts/mark-all-paid — mark all pending commissions as paid
 app.post("/api/admin/payouts/mark-all-paid", async (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
@@ -1087,11 +1104,25 @@ app.get("/api/commissions", async (req, res) => {
 });
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
+// POST /api/auth/login
+// Body: { email, password }
+//
+// FIXED:
+//  - Returns 500 immediately (with a clear message) if the Supabase client
+//    never initialized, instead of throwing a confusing TypeError later.
+//  - Logs the *actual* Supabase error object (not just err.message) so the
+//    real cause (bad URL, bad key, RLS blocking the query, missing table,
+//    etc.) shows up in Render logs.
+//  - Distinguishes "no row found" (expected, 401) from "query itself failed"
+//    (unexpected, 500) by checking the Supabase error code.
+//  - 400 for missing email/password, 401 for invalid credentials,
+//    200 for success, 500 only for genuinely unexpected errors.
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    if (!requireSupabase(res)) return;
 
-    // Validation
+    const { email, password } = req.body || {};
+
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -1099,22 +1130,36 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    // Check user in partners table
     const { data, error } = await supabase
       .from("partners")
       .select("*")
       .eq("email", email)
       .eq("password", password)
-      .single();
+      .maybeSingle(); // returns null instead of throwing when no row matches
 
-    if (error || !data) {
+    if (error) {
+      // This is a real Supabase/Postgres problem: bad table name, RLS policy
+      // blocking the query, network issue, etc. Log full detail.
+      console.error("Login Supabase Error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      return res.status(500).json({
+        success: false,
+        message: "Internal Server Error",
+      });
+    }
+
+    if (!data) {
+      // Query succeeded, just no matching partner — wrong email/password.
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
       });
     }
 
-    // Login Success
     return res.status(200).json({
       success: true,
       message: "Login successful",
@@ -1127,13 +1172,13 @@ app.post("/api/auth/login", async (req, res) => {
         website: data.website,
         tier: data.tier,
         commission_rate: data.commission_rate,
-        role: data.role, // <-- Important
+        role: data.role,
       },
     });
 
   } catch (err) {
-    console.error("Login Error:", err);
-
+    // Genuinely unexpected exception (e.g. malformed request, code bug).
+    console.error("Login Error (unexpected exception):", err);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -1142,9 +1187,6 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 // ─── Notifications ────────────────────────────────────────────────────────────
-// GET /api/notifications
-// Reads from activity_logs table: (id, created_at, action, description, partner_id)
-// Returns latest 5 entries ordered newest first.
 app.get("/api/notifications", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -1169,8 +1211,6 @@ app.get("/api/notifications", async (req, res) => {
 });
 
 // ─── Resources ────────────────────────────────────────────────────────────────
-// GET /api/resources
-// Supabase table: resources (id, created_at, title, description, file_type, file_url)
 app.get("/api/resources", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -1185,7 +1225,6 @@ app.get("/api/resources", async (req, res) => {
       });
     }
 
-    // Normalize file_type → type for frontend compatibility
     const resources = data.map((r) => ({
       ...r,
       type: r.file_type || r.type || "DOC",
@@ -1205,10 +1244,6 @@ app.get("/api/resources", async (req, res) => {
 });
 
 // ─── Send Email ───────────────────────────────────────────────────────────────
-// POST /api/send-email
-// Body: { to, subject, message }
-// Uses Resend (RESEND_API_KEY in .env)
-// Sender: set RESEND_FROM_EMAIL in .env (must be a verified Resend domain)
 app.post("/api/send-email", async (req, res) => {
   try {
     const { to, subject, message } = req.body;
@@ -1269,8 +1304,6 @@ app.post("/api/send-email", async (req, res) => {
 });
 
 // ─── Profile Update ───────────────────────────────────────────────────────────
-// POST /api/profile/update
-// Body: { id, full_name, agency_name, phone, website }
 app.post("/api/profile/update", async (req, res) => {
   try {
     const { id, full_name, agency_name, phone, website } = req.body;
@@ -1311,9 +1344,6 @@ app.post("/api/profile/update", async (req, res) => {
 });
 
 // ─── Partner Agreement ────────────────────────────────────────────────────────
-// POST /api/partner/agreement
-// Body: { partner_id, signature }
-// Saves agreement acceptance to the partners table. No PDF generation.
 app.post("/api/partner/agreement", async (req, res) => {
   try {
     const { partner_id, signature } = req.body;
