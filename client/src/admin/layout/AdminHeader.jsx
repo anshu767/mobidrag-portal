@@ -1,4 +1,5 @@
 import { useState } from "react";
+import api from "../../api/axios";
 
 const C = {
   teal: "#0d9f8f",
@@ -10,6 +11,13 @@ export default function AdminHeader({ title, partner }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [addHovered, setAddHovered] = useState(false);
   const [showAddPartner, setShowAddPartner] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [form, setForm] = useState({
+    full_name: "",
+    email: "",
+    agency_name: "",
+  });
 
   const notifications = [
     { id: 1, text: "New partner application from Shopify Wizards", time: "5m ago" },
@@ -17,6 +25,33 @@ export default function AdminHeader({ title, partner }) {
     { id: 3, text: "Payout cycle due in 3 days — $4,820 pending", time: "2h ago" },
     { id: 4, text: "Stalled deal: BrightCart has no update for 8 days", time: "1d ago" },
   ];
+
+  const closeModal = () => {
+    setShowAddPartner(false);
+    setForm({ full_name: "", email: "", agency_name: "" });
+  };
+
+  const handleAddPartner = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = await api.post("/admin/partners", form);
+
+      if (res.data.success) {
+        closeModal();
+        // Tell the Partners page (or any listener) to refresh its list
+        window.dispatchEvent(new Event("partnerAdded"));
+        alert("Partner Added Successfully");
+      } else {
+        alert("Failed to add partner");
+      }
+    } catch (err) {
+      console.log(err);
+      alert("Failed to add partner");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div
@@ -191,6 +226,8 @@ export default function AdminHeader({ title, partner }) {
             <input
               type="text"
               placeholder="Partner Name"
+              value={form.full_name}
+              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
               style={{
                 width: "100%",
                 padding: 10,
@@ -203,6 +240,8 @@ export default function AdminHeader({ title, partner }) {
             <input
               type="email"
               placeholder="Email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
               style={{
                 width: "100%",
                 padding: 10,
@@ -215,6 +254,8 @@ export default function AdminHeader({ title, partner }) {
             <input
               type="text"
               placeholder="Agency Name"
+              value={form.agency_name}
+              onChange={(e) => setForm({ ...form, agency_name: e.target.value })}
               style={{
                 width: "100%",
                 padding: 10,
@@ -232,7 +273,7 @@ export default function AdminHeader({ title, partner }) {
               }}
             >
               <button
-                onClick={() => setShowAddPartner(false)}
+                onClick={closeModal}
                 style={{
                   padding: "8px 16px",
                   borderRadius: 6,
@@ -245,20 +286,19 @@ export default function AdminHeader({ title, partner }) {
               </button>
 
               <button
-                onClick={() => {
-                  alert("Partner Added Successfully");
-                  setShowAddPartner(false);
-                }}
+                onClick={handleAddPartner}
+                disabled={saving}
                 style={{
                   padding: "8px 16px",
                   borderRadius: 6,
                   border: "none",
                   background: "#14b8a6",
                   color: "#fff",
-                  cursor: "pointer",
+                  cursor: saving ? "default" : "pointer",
+                  opacity: saving ? 0.7 : 1,
                 }}
               >
-                Add Partner
+                {saving ? "Adding..." : "Add Partner"}
               </button>
             </div>
           </div>

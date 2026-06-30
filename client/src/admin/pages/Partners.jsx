@@ -15,8 +15,16 @@ export default function Partners() {
   const [tierDraft, setTierDraft] = useState("");
 
   useEffect(() => {
-  loadPartners();
-}, []);
+    loadPartners();
+
+    // Refresh the list whenever a new partner is added from AdminHeader
+    const handlePartnerAdded = () => loadPartners();
+    window.addEventListener("partnerAdded", handlePartnerAdded);
+
+    return () => {
+      window.removeEventListener("partnerAdded", handlePartnerAdded);
+    };
+  }, []);
 
 const loadPartners = async () => {
   try {
