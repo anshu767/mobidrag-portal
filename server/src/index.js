@@ -673,6 +673,54 @@ app.get("/api/admin/partners", async (req, res) => {
   }
 });
 
+// POST /api/admin/partners — simple Add Partner (no auth, no password, no email)
+// Body: { full_name, email, agency_name }
+app.post("/api/admin/partners", async (req, res) => {
+  try {
+    const { full_name, email, agency_name } = req.body;
+
+    if (!full_name || !email || !agency_name) {
+      return res.status(400).json({
+        success: false,
+        message: "full_name, email, and agency_name are required",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("partners")
+      .insert([
+        {
+          full_name,
+          email,
+          agency_name,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.log("Supabase Error (add partner):", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Partner added successfully",
+      partner: data,
+    });
+
+  } catch (err) {
+    console.log("Server Error (add partner):", err);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
 app.patch("/api/admin/partners/:id/tier", async (req, res) => {
   try {
 
