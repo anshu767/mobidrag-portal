@@ -9,6 +9,7 @@ const C = {
 export default function AdminHeader({ title, partner }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [addHovered, setAddHovered] = useState(false);
+  const [showAddPartner, setShowAddPartner] = useState(false);
 
   const notifications = [
     { id: 1, text: "New partner application from Shopify Wizards", time: "5m ago" },
@@ -18,18 +19,20 @@ export default function AdminHeader({ title, partner }) {
   ];
 
   return (
-    <div style={{
-      background: "#fff",
-      borderBottom: "0.5px solid #e2e8f0",
-      padding: "12px 24px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      flexShrink: 0,
-      position: "sticky",
-      top: 0,
-      zIndex: 50,
-    }}>
+    <div
+      style={{
+        background: "#fff",
+        borderBottom: "0.5px solid #e2e8f0",
+        padding: "12px 24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexShrink: 0,
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+      }}
+    >
       <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>{title}</span>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -38,29 +41,59 @@ export default function AdminHeader({ title, partner }) {
           <button
             onClick={() => setBellOpen((v) => !v)}
             style={{
-              padding: "6px 10px", border: "1px solid #e2e8f0",
-              background: "#fff", borderRadius: 7, cursor: "pointer",
-              fontSize: 15, position: "relative",
+              padding: "6px 10px",
+              border: "1px solid #e2e8f0",
+              background: "#fff",
+              borderRadius: 7,
+              cursor: "pointer",
+              fontSize: 15,
+              position: "relative",
             }}
           >
             🔔
-            <span style={{
-              position: "absolute", top: -3, right: -3,
-              background: "#ef4444", color: "#fff",
-              fontSize: 9, fontWeight: 700,
-              width: 14, height: 14, borderRadius: "50%",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>4</span>
+            <span
+              style={{
+                position: "absolute",
+                top: -3,
+                right: -3,
+                background: "#ef4444",
+                color: "#fff",
+                fontSize: 9,
+                fontWeight: 700,
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              4
+            </span>
           </button>
           {bellOpen && (
-            <div style={{
-              position: "absolute", top: "calc(100% + 8px)", right: 0,
-              width: 300, background: "#fff",
-              border: "0.5px solid #e2e8f0", borderRadius: 10,
-              boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
-              zIndex: 100,
-            }}>
-              <div style={{ padding: "10px 14px", borderBottom: "0.5px solid #f1f5f9", fontSize: 12, fontWeight: 600, color: "#0f172a" }}>
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 8px)",
+                right: 0,
+                width: 300,
+                background: "#fff",
+                border: "0.5px solid #e2e8f0",
+                borderRadius: 10,
+                boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+                zIndex: 100,
+              }}
+            >
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderBottom: "0.5px solid #f1f5f9",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#0f172a",
+                }}
+              >
                 Notifications
               </div>
               {notifications.map((n, i) => (
@@ -68,12 +101,15 @@ export default function AdminHeader({ title, partner }) {
                   key={n.id}
                   style={{
                     padding: "10px 14px",
-                    borderBottom: i < notifications.length - 1 ? "0.5px solid #f1f5f9" : "none",
+                    borderBottom:
+                      i < notifications.length - 1 ? "0.5px solid #f1f5f9" : "none",
                     cursor: "pointer",
                   }}
                   onClick={() => setBellOpen(false)}
                 >
-                  <div style={{ fontSize: 12, color: "#0f172a", lineHeight: 1.4 }}>{n.text}</div>
+                  <div style={{ fontSize: 12, color: "#0f172a", lineHeight: 1.4 }}>
+                    {n.text}
+                  </div>
                   <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>{n.time}</div>
                 </div>
               ))}
@@ -83,13 +119,19 @@ export default function AdminHeader({ title, partner }) {
 
         {/* Add partner */}
         <button
+          onClick={() => setShowAddPartner(true)}
           onMouseEnter={() => setAddHovered(true)}
           onMouseLeave={() => setAddHovered(false)}
           style={{
-            padding: "7px 14px", fontSize: 12, fontWeight: 500,
+            padding: "7px 14px",
+            fontSize: 12,
+            fontWeight: 500,
             background: addHovered ? C.tealDark : C.teal,
-            color: "#fff", border: "none", borderRadius: 7,
-            cursor: "pointer", transition: "background 0.15s",
+            color: "#fff",
+            border: "none",
+            borderRadius: 7,
+            cursor: "pointer",
+            transition: "background 0.15s",
           }}
         >
           + Add Partner
@@ -97,20 +139,131 @@ export default function AdminHeader({ title, partner }) {
 
         {/* Avatar */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: "50%",
-            background: C.teal,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#fff", fontSize: 13, fontWeight: 600,
-          }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              background: C.teal,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
             {(partner?.full_name?.[0] || "A").toUpperCase()}
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "#0f172a" }}>{partner?.full_name || "Admin"}</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "#0f172a" }}>
+              {partner?.full_name || "Admin"}
+            </div>
             <div style={{ fontSize: 10, color: C.gray }}>Administrator</div>
           </div>
         </div>
       </div>
+
+      {/* Add Partner Modal */}
+      {showAddPartner && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              width: 420,
+              padding: 25,
+              borderRadius: 10,
+              boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+            }}
+          >
+            <h3 style={{ marginBottom: 20 }}>Add New Partner</h3>
+
+            <input
+              type="text"
+              placeholder="Partner Name"
+              style={{
+                width: "100%",
+                padding: 10,
+                marginBottom: 10,
+                border: "1px solid #ddd",
+                borderRadius: 6,
+              }}
+            />
+
+            <input
+              type="email"
+              placeholder="Email"
+              style={{
+                width: "100%",
+                padding: 10,
+                marginBottom: 10,
+                border: "1px solid #ddd",
+                borderRadius: 6,
+              }}
+            />
+
+            <input
+              type="text"
+              placeholder="Agency Name"
+              style={{
+                width: "100%",
+                padding: 10,
+                marginBottom: 20,
+                border: "1px solid #ddd",
+                borderRadius: 6,
+              }}
+            />
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 10,
+              }}
+            >
+              <button
+                onClick={() => setShowAddPartner(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  border: "1px solid #ccc",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => {
+                  alert("Partner Added Successfully");
+                  setShowAddPartner(false);
+                }}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  border: "none",
+                  background: "#14b8a6",
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                Add Partner
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
