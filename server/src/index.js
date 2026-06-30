@@ -7,7 +7,22 @@ const { Resend } = require("resend");
 const app = express();
 
 // ─── Middleware (must come before routes) ─────────────────────────────────────
-app.use(cors());
+// Explicit CORS config rather than bare cors(). The default cors() already
+// reflects any Origin header and works fine for non-credentialed requests, so
+// it was very unlikely to be the actual cause of "Could not connect to
+// server" on mobile (a true CORS rejection shows up as a CORS error in
+// devtools, not a connection failure — and /api/test already works from
+// mobile, which rules out CORS as the culprit). Still, making this explicit
+// removes ambiguity and ensures preflight OPTIONS requests are handled for
+// every route, including any mobile WebView/Capacitor origins that send
+// "null" or no Origin header at all.
+const corsOptions = {
+  origin: true, // reflect request origin (equivalent to "*" but credential-safe if ever needed)
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // explicitly handle preflight for all routes
 app.use(express.json());
 
 // ─── Env var validation (fail loud, not silent) ────────────────────────────────
