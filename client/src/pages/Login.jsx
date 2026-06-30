@@ -16,35 +16,35 @@ function Login() {
       const response = await api.post('/auth/login', formData);
       setMessage(response.data.message);
     } catch (error) {
-      // Detailed diagnostic logging — check these in the mobile browser's
-      // remote devtools console (or `adb logcat` / Safari Web Inspector for
-      // an in-app WebView) to see exactly what's failing.
+      // Full diagnostic dump — also visible in console via the axios
+      // interceptor in api/axios.js, but surfaced here directly in the UI
+      // too, since remote devtools aren't always available on a phone.
       console.log('Login error object:', error);
       console.log('error.message:', error.message);
       console.log('error.code:', error.code);
       console.log('error.response:', error.response);
       console.log('error.config:', error.config);
 
+      const requestUrl = `${error.config?.baseURL || ''}${error.config?.url || ''}`;
+
       if (error.response) {
-        // The request reached the backend and the backend responded with
-        // an error status (400/401/500). Show its actual message — this is
-        // NOT a connectivity problem, so don't say "could not connect".
-        setMessage(error.response.data?.message || `Login failed (status ${error.response.status})`);
+        // Request reached the backend; backend responded with an error
+        // status (400/401/500). This is NOT a connectivity problem.
+        const status = error.response.status;
+        const data = error.response.data;
+        setMessage(
+          `Login failed (HTTP ${status}): ${data?.message || JSON.stringify(data) || 'No error detail returned.'}`
+        );
       } else if (error.request) {
-        // The request was sent but no response ever came back — this is a
-        // genuine network/CORS/DNS/timeout failure. error.code is the most
-        // useful field here: "ECONNABORTED" = timeout, "ERR_NETWORK" =
-        // could not reach the host at all (DNS, no internet, CORS preflight
-        // rejected before a response body was readable), etc.
-        if (error.code === 'ECONNABORTED') {
-          setMessage('The server took too long to respond. Please try again.');
-        } else {
-          setMessage('Could not connect to server. Please check your internet connection and try again.');
-        }
+        // Request was sent but no response ever came back — genuine
+        // network/CORS/DNS/timeout failure. Show the real code/message
+        // instead of a generic line, so the actual cause is visible.
+        setMessage(
+          `Could not reach server. code=${error.code || 'UNKNOWN'} message="${error.message}" url=${requestUrl}`
+        );
       } else {
-        // Something went wrong setting up the request itself (rare —
-        // usually a bug in the request config, not a connectivity issue).
-        setMessage(error.message || 'Login request failed');
+        // Something went wrong setting up the request itself.
+        setMessage(`Request setup failed: ${error.message}`);
       }
     }
   };

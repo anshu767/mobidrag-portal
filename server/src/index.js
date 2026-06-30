@@ -7,23 +7,42 @@ const { Resend } = require("resend");
 const app = express();
 
 // ─── Middleware (must come before routes) ─────────────────────────────────────
-// Explicit CORS config rather than bare cors(). The default cors() already
-// reflects any Origin header and works fine for non-credentialed requests, so
-// it was very unlikely to be the actual cause of "Could not connect to
-// server" on mobile (a true CORS rejection shows up as a CORS error in
-// devtools, not a connection failure — and /api/test already works from
-// mobile, which rules out CORS as the culprit). Still, making this explicit
-// removes ambiguity and ensures preflight OPTIONS requests are handled for
-// every route, including any mobile WebView/Capacitor origins that send
-// "null" or no Origin header at all.
+// Explicit CORS config. NOTE: the previous version also had
+//   app.options("*", cors(corsOptions));
+// This is removed below. `app.use(cors(corsOptions))` already answers every
+// OPTIONS preflight for every route on its own — the extra app.options("*", ...)
+// line was redundant, and on path-to-regexp@6+ (shipped with Express 5, and
+// pulled in transitively by some Express 4 installs) a bare "*" path throws
+// `TypeError: Missing parameter name` at startup. If that throw happens
+// during route registration it can abort the whole process depending on how
+// it's invoked, or — more insidiously — leave OPTIONS preflight requests
+// unhandled while normal GET routes (like /api/test, hit by a plain browser
+// navigation which never sends a preflight) keep working fine. That exactly
+// matches the symptom here: GET works, POST (which triggers a CORS
+// preflight because of the JSON content-type) silently fails with no
+// response ever coming back.
 const corsOptions = {
   origin: true, // reflect request origin (equivalent to "*" but credential-safe if ever needed)
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // explicitly handle preflight for all routes
 app.use(express.json());
+
+// Catch malformed/empty JSON bodies explicitly. Without this, a bad request
+// body throws inside express.json() and — depending on client/proxy
+// behaviour — can present to axios as a dropped connection ("Network
+// Error" / no response) rather than a clean 400, which looks identical to
+// a real connectivity failure from the frontend's point of view.
+app.use((err, req, res, next) => {
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({
+      success: false,
+      message: "Malformed JSON in request body",
+    });
+  }
+  next(err);
+});
 
 // ─── Env var validation (fail loud, not silent) ────────────────────────────────
 // If these are missing/misnamed on Render, every Supabase call below will fail
@@ -1121,17 +1140,6 @@ app.get("/api/commissions", async (req, res) => {
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 // POST /api/auth/login
 // Body: { email, password }
-//
-// FIXED:
-//  - Returns 500 immediately (with a clear message) if the Supabase client
-//    never initialized, instead of throwing a confusing TypeError later.
-//  - Logs the *actual* Supabase error object (not just err.message) so the
-//    real cause (bad URL, bad key, RLS blocking the query, missing table,
-//    etc.) shows up in Render logs.
-//  - Distinguishes "no row found" (expected, 401) from "query itself failed"
-//    (unexpected, 500) by checking the Supabase error code.
-//  - 400 for missing email/password, 401 for invalid credentials,
-//    200 for success, 500 only for genuinely unexpected errors.
 app.post("/api/auth/login", async (req, res) => {
   try {
     if (!requireSupabase(res)) return;
@@ -1153,8 +1161,6 @@ app.post("/api/auth/login", async (req, res) => {
       .maybeSingle(); // returns null instead of throwing when no row matches
 
     if (error) {
-      // This is a real Supabase/Postgres problem: bad table name, RLS policy
-      // blocking the query, network issue, etc. Log full detail.
       console.error("Login Supabase Error:", {
         message: error.message,
         details: error.details,
@@ -1168,7 +1174,6 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     if (!data) {
-      // Query succeeded, just no matching partner — wrong email/password.
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -1192,7 +1197,6 @@ app.post("/api/auth/login", async (req, res) => {
     });
 
   } catch (err) {
-    // Genuinely unexpected exception (e.g. malformed request, code bug).
     console.error("Login Error (unexpected exception):", err);
     return res.status(500).json({
       success: false,
