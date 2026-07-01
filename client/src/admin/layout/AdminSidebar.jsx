@@ -11,6 +11,10 @@ const C = {
   textActive: "#ffffff",
 };
 
+const getAdminDisplayName = (name) => {
+  return name === "Anshu Singh" ? "Nigam Shah" : name;
+};
+
 const NAV = [
   {
     section: "Overview",
@@ -89,6 +93,7 @@ function NavItem({ item, active, onClick }) {
 
 export default function AdminSidebar({ active, setPage, partner, onSignOut }) {
   const [signOutHovered, setSignOutHovered] = useState(false);
+  const displayName = getAdminDisplayName(partner?.full_name) || "Admin";
 
   return (
     <div style={{
@@ -147,11 +152,11 @@ export default function AdminSidebar({ active, setPage, partner, onSignOut }) {
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "#fff", fontSize: 13, fontWeight: 600, flexShrink: 0,
           }}>
-            {(partner?.full_name?.[0] || "A").toUpperCase()}
+            {(displayName?.[0] || "A").toUpperCase()}
           </div>
           <div style={{ overflow: "hidden" }}>
             <div style={{ fontSize: 12, fontWeight: 500, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {partner?.full_name || "Admin"}
+              {displayName}
             </div>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>Administrator</div>
           </div>

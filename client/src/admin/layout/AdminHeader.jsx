@@ -7,6 +7,10 @@ const C = {
   gray: "#64748b",
 };
 
+const getAdminDisplayName = (name) => {
+  return name === "Anshu Singh" ? "Nigam Shah" : name;
+};
+
 export default function AdminHeader({ title, partner }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [addHovered, setAddHovered] = useState(false);
@@ -18,6 +22,8 @@ export default function AdminHeader({ title, partner }) {
     email: "",
     agency_name: "",
   });
+
+  const displayName = getAdminDisplayName(partner?.full_name) || "Admin";
 
   const notifications = [
     { id: 1, text: "New partner application from Shopify Wizards", time: "5m ago" },
@@ -188,11 +194,11 @@ export default function AdminHeader({ title, partner }) {
               fontWeight: 600,
             }}
           >
-            {(partner?.full_name?.[0] || "A").toUpperCase()}
+            {(displayName?.[0] || "A").toUpperCase()}
           </div>
           <div>
             <div style={{ fontSize: 12, fontWeight: 500, color: "#0f172a" }}>
-              {partner?.full_name || "Admin"}
+              {displayName}
             </div>
             <div style={{ fontSize: 10, color: C.gray }}>Administrator</div>
           </div>
