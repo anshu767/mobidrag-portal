@@ -125,6 +125,20 @@ const loadApplications = async () => {
       setApps(formatted);
     }
   } catch (err) {
+    setApps(
+  DEMO_APPLICATIONS.map(item => ({
+    id: item.id,
+    agency: item.agency_name,
+    contact: item.full_name,
+    email: item.email,
+    website: item.website,
+    stores: item.stores_managed,
+    tags: item.referral_tags.split(","),
+    location: "-",
+    date: new Date(item.created_at).toLocaleDateString(),
+    status: item.status,
+  }))
+);
     console.log(err);
   } finally {
     setLoading(false);
