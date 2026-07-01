@@ -104,20 +104,23 @@ const loadApplications = async () => {
 
     if (res.data.success) {
       const applications = (res.data.applications || []).length > 0 ? res.data.applications : DEMO_APPLICATIONS;
-      const formatted = applications.map((item) => ({
-        id: item.id,
-        agency: item.agency_name,
-        contact: item.full_name,
-        email: item.email,
-        website: item.website,
-        stores: item.stores_managed,
-        tags: item.referral_tags
-          ? item.referral_tags.split(",")
-          : [],
-        location: "-",
-        date: new Date(item.created_at).toLocaleDateString(),
-        status: item.status || "pending",
-      }));
+      const formatted = applications.map((item) => {
+        const normalizedStatus = item.status ? String(item.status).trim().toLowerCase() : item.status;
+        return {
+          id: item.id,
+          agency: item.agency_name,
+          contact: item.full_name,
+          email: item.email,
+          website: item.website,
+          stores: item.stores_managed,
+          tags: item.referral_tags
+            ? item.referral_tags.split(",")
+            : [],
+          location: "-",
+          date: new Date(item.created_at).toLocaleDateString(),
+          status: normalizedStatus,
+        };
+      });
 
       setApps(formatted);
     }
