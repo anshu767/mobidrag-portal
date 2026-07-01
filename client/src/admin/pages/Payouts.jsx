@@ -4,6 +4,46 @@ import PageTitle from "../components/PageTitle";
 import MetricCard from "../components/MetricCard";
 import StatusBadge from "../components/StatusBadge";
 
+const DEMO_PENDING_PAYOUTS = [
+  {
+    id: "demo-1",
+    name: "Velocity Partners",
+    rate: "12%",
+    apps: 4,
+    brands: ["CartLeap", "StorePilot"],
+    amount: 52000,
+  },
+  {
+    id: "demo-2",
+    name: "BrightCart Labs",
+    rate: "11.5%",
+    apps: 3,
+    brands: ["ShopEase", "Boostify"],
+    amount: 36000,
+  },
+  {
+    id: "demo-3",
+    name: "NextWave Digital",
+    rate: "13%",
+    apps: 5,
+    brands: ["LaunchCart", "PromoMesh"],
+    amount: 45000,
+  },
+];
+
+const getCurrentMonthLabel = () => new Date().toLocaleString("default", { month: "long", year: "numeric" });
+
+const isDemoPayout = (p) => typeof p.id === "string" && p.id.startsWith("demo-");
+
+const toHistoryRecord = (p) => ({
+  id: `hist-${p.id}`,
+  partner: p.name,
+  month: getCurrentMonthLabel(),
+  amount: Number(p.amount) || 0,
+  status: "Paid",
+  ref: `REF-${p.id.slice(-4).toUpperCase()}`,
+});
+
 export default function Payouts() {
   const [pending, setPending] = useState([]);
   const [history, setHistory] = useState([]);
@@ -25,7 +65,8 @@ export default function Payouts() {
       ]);
 
       if (pendingRes.data.success) {
-        setPending(pendingRes.data.pending || []);
+        const pendingData = (pendingRes.data.pending || []).length > 0 ? pendingRes.data.pending : DEMO_PENDING_PAYOUTS;
+        setPending(pendingData);
       }
 
       if (historyRes.data.success) {
@@ -43,6 +84,14 @@ export default function Payouts() {
 
   const markPaid = async (partner) => {
     if (paidIds.includes(partner.id)) return;
+
+    if (isDemoPayout(partner)) {
+      setPending((p) => p.filter((item) => item.id !== partner.id));
+      setHistory((h) => [...h, toHistoryRecord(partner)]);
+      setPaidIds((p) => [...p, partner.id]);
+      return;
+    }
+
     try {
       await api.post("/admin/payouts/mark-paid", {
         partner_id: partner.id,
@@ -50,6 +99,7 @@ export default function Payouts() {
         month_label: new Date().toLocaleString("default", { month: "long", year: "numeric" }),
       });
       setPaidIds((p) => [...p, partner.id]);
+      await loadPayouts();
     } catch (err) {
       console.error(err);
     }
@@ -58,15 +108,29 @@ export default function Payouts() {
   const markAllPaid = async () => {
     try {
       const unpaid = pending.filter((p) => !paidIds.includes(p.id));
-      await api.post("/admin/payouts/mark-all-paid", {
-        partners: unpaid.map((p) => ({
-          partner_id: p.id,
-          amount: p.amount,
-          month_label: new Date().toLocaleString("default", { month: "long", year: "numeric" }),
-        })),
-      });
-      setPaidIds(pending.map((p) => p.id));
+      const demoItems = unpaid.filter(isDemoPayout);
+      const realItems = unpaid.filter((p) => !isDemoPayout(p));
+
+      if (realItems.length > 0) {
+        await api.post("/admin/payouts/mark-all-paid", {
+          partners: realItems.map((p) => ({
+            partner_id: p.id,
+            amount: p.amount,
+            month_label: new Date().toLocaleString("default", { month: "long", year: "numeric" }),
+          })),
+        });
+      }
+
+      if (demoItems.length > 0) {
+        setHistory((h) => [...h, ...demoItems.map(toHistoryRecord)]);
+        setPending((p) => p.filter((item) => !demoItems.some((demo) => demo.id === item.id)));
+      }
+
+      setPaidIds((p) => [...p, ...unpaid.map((item) => item.id)]);
       setConfirmAll(false);
+      if (realItems.length > 0) {
+        await loadPayouts();
+      }
     } catch (err) {
       console.error(err);
     }

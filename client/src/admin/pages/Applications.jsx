@@ -3,7 +3,74 @@ import api from "../../api/axios";
 import PageTitle from "../components/PageTitle";
 import StatusBadge from "../components/StatusBadge";
 
-
+const DEMO_APPLICATIONS = [
+  {
+    id: "app-1",
+    agency_name: "Velocity Partners",
+    full_name: "Ayesha Kapoor",
+    email: "ayesha@velocitypartners.com",
+    website: "velocitypartners.co",
+    stores_managed: "8 Shopify stores",
+    referral_tags: "Shopify,B2B,Conversion",
+    created_at: "2025-06-17T09:30:00.000Z",
+    status: "pending",
+  },
+  {
+    id: "app-2",
+    agency_name: "BrightCart Labs",
+    full_name: "Rahul Mehra",
+    email: "rahul@brightcartlabs.com",
+    website: "brightcartlabs.com",
+    stores_managed: "5 Shopify stores",
+    referral_tags: "Growth,Automation,Revenue",
+    created_at: "2025-06-15T13:20:00.000Z",
+    status: "pending",
+  },
+  {
+    id: "app-3",
+    agency_name: "NextWave Digital",
+    full_name: "Priya Nair",
+    email: "priya@nextwavedigital.com",
+    website: "nextwavedigital.com",
+    stores_managed: "6 Shopify stores",
+    referral_tags: "Branding,Retention,UX",
+    created_at: "2025-06-13T11:05:00.000Z",
+    status: "pending",
+  },
+  {
+    id: "app-4",
+    agency_name: "Shopify Wizards",
+    full_name: "Devansh Shah",
+    email: "devansh@shopifywizards.com",
+    website: "shopifywizards.io",
+    stores_managed: "10 Shopify stores",
+    referral_tags: "Launch,Scaling,Premium",
+    created_at: "2025-06-10T14:45:00.000Z",
+    status: "approved",
+  },
+  {
+    id: "app-5",
+    agency_name: "Ecom Growth Studio",
+    full_name: "Nisha Patel",
+    email: "nisha@ecomgrowthstudio.com",
+    website: "ecomgrowthstudio.co",
+    stores_managed: "7 Shopify stores",
+    referral_tags: "Ads,Retention,Migration",
+    created_at: "2025-06-08T16:10:00.000Z",
+    status: "approved",
+  },
+  {
+    id: "app-6",
+    agency_name: "Conversion Crew",
+    full_name: "Soham Kapoor",
+    email: "soham@conversioncrew.com",
+    website: "conversioncrew.com",
+    stores_managed: "4 Shopify stores",
+    referral_tags: "Checkout,Upsell,Analytics",
+    created_at: "2025-06-05T10:55:00.000Z",
+    status: "rejected",
+  },
+];
 
 function ActionButton({ label, color, bg, hoverBg, onClick }) {
   const [hov, setHov] = useState(false);
@@ -36,7 +103,8 @@ const loadApplications = async () => {
     const res = await api.get("/applications");
 
     if (res.data.success) {
-      const formatted = res.data.applications.map((item) => ({
+      const applications = (res.data.applications || []).length > 0 ? res.data.applications : DEMO_APPLICATIONS;
+      const formatted = applications.map((item) => ({
         id: item.id,
         agency: item.agency_name,
         contact: item.full_name,
@@ -48,7 +116,7 @@ const loadApplications = async () => {
           : [],
         location: "-",
         date: new Date(item.created_at).toLocaleDateString(),
-        status: item.status,
+        status: item.status || "pending",
       }));
 
       setApps(formatted);
