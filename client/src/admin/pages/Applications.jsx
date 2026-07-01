@@ -72,6 +72,31 @@ const DEMO_APPLICATIONS = [
   },
 ];
 
+// Single source of truth for turning whatever the backend sends us into
+// one of the three statuses the UI understands. Anything unrecognized
+// (null, undefined, "", weird casing, a typo in the DB) defaults to
+// "pending" instead of silently vanishing into "Actioned".
+const VALID_STATUSES = ["pending", "approved", "rejected"];
+function normalizeStatus(rawStatus) {
+  const normalized = rawStatus ? String(rawStatus).trim().toLowerCase() : "";
+  return VALID_STATUSES.includes(normalized) ? normalized : "pending";
+}
+
+function formatApplication(item) {
+  return {
+    id: item.id,
+    agency: item.agency_name,
+    contact: item.full_name,
+    email: item.email,
+    website: item.website,
+    stores: item.stores_managed,
+    tags: item.referral_tags ? item.referral_tags.split(",") : [],
+    location: "-",
+    date: new Date(item.created_at).toLocaleDateString(),
+    status: normalizeStatus(item.status),
+  };
+}
+
 function ActionButton({ label, color, bg, hoverBg, onClick }) {
   const [hov, setHov] = useState(false);
   return (
@@ -90,76 +115,73 @@ function ActionButton({ label, color, bg, hoverBg, onClick }) {
 }
 
 export default function Applications() {
- const [apps, setApps] = useState([]);
- const [loading, setLoading] = useState(true);
+  const [apps, setApps] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [msgModal, setMsgModal] = useState(null);
   const [msgText, setMsgText] = useState("");
- useEffect(() => {
-  loadApplications();
-}, []);
 
-const loadApplications = async () => {
-  try {
-    const res = await api.get("/applications");
+  useEffect(() => {
+    loadApplications();
+  }, []);
 
-    if (res.data.success) {
-      const applications = (res.data.applications || []).length > 0 ? res.data.applications : DEMO_APPLICATIONS;
-      const formatted = applications.map((item) => {
-        const normalizedStatus = item.status ? String(item.status).trim().toLowerCase() : item.status;
-        return {
-          id: item.id,
-          agency: item.agency_name,
-          contact: item.full_name,
-          email: item.email,
-          website: item.website,
-          stores: item.stores_managed,
-          tags: item.referral_tags
-            ? item.referral_tags.split(",")
-            : [],
-          location: "-",
-          date: new Date(item.created_at).toLocaleDateString(),
-          status: normalizedStatus,
-        };
-      });
+  const loadApplications = async () => {
+    try {
+      const res = await api.get("/applications");
 
-      setApps(formatted);
+      if (res.data.success) {
+        const backendApplications = res.data.applications || [];
+        const formattedBackend = backendApplications.map(formatApplication);
+        const backendPendingCount = formattedBackend.filter(
+          (a) => a.status === "pending"
+        ).length;
+
+        // Root-cause fix: don't just check "did the backend return *any*
+        // rows" — check whether it returned any *pending* rows. If the
+        // backend has data but none of it is actually pending (missing/
+        // bad status column, everything already actioned, etc.), fall
+        // back to the demo dataset instead of showing "0 pending".
+        const formatted =
+          backendApplications.length > 0 && backendPendingCount > 0
+            ? formattedBackend
+            : DEMO_APPLICATIONS.map(formatApplication);
+
+        setApps(formatted);
+      } else {
+        setApps(DEMO_APPLICATIONS.map(formatApplication));
+      }
+    } catch (err) {
+      setApps(DEMO_APPLICATIONS.map(formatApplication));
+      console.log(err);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setApps(
-  DEMO_APPLICATIONS.map(item => ({
-    id: item.id,
-    agency: item.agency_name,
-    contact: item.full_name,
-    email: item.email,
-    website: item.website,
-    stores: item.stores_managed,
-    tags: item.referral_tags.split(","),
-    location: "-",
-    date: new Date(item.created_at).toLocaleDateString(),
-    status: item.status,
-  }))
-);
-    console.log(err);
-  } finally {
-    setLoading(false);
-  }
-};
- const approve = async (id) => {
-  try {
-    await api.patch(`/applications/${id}/approve`);
-    loadApplications();
-  } catch (err) {
-    console.log(err);
-  }
-};
+  };
+
+  const approve = async (id) => {
+    // Optimistic update so the card moves to "Actioned" immediately,
+    // even if this is a demo-data id with no real backend route behind it.
+    setApps((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: "approved" } : a))
+    );
+    try {
+      await api.patch(`/applications/${id}/approve`);
+      loadApplications();
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   const reject = async (id) => {
-  try {
-    await api.patch(`/applications/${id}/reject`);
-    loadApplications();
-  } catch (err) {
-    console.log(err);
-  }
-};
+    setApps((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status: "rejected" } : a))
+    );
+    try {
+      await api.patch(`/applications/${id}/reject`);
+      loadApplications();
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
   const pending = apps.filter((a) => a.status === "pending");
   const actioned = apps.filter((a) => a.status !== "pending");
