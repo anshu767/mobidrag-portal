@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import React from "react";
+import api from "./api/axios";
 import AdminApp from "./admin/AdminApp";
 import AgreementModal from "./components/AgreementModal";
 // ─── Color tokens — MobiDrag brand (exact teal from mobidrag.com) ─────────────
@@ -97,15 +97,8 @@ const handleSignIn = async () => {
   setLoading(true);
 
   try {
-    const res = await fetch("http://localhost:5000/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await res.json();
+    const res = await api.post("/auth/login", { email, password });
+    const data = res.data;
 
     if (data.success) {
       // Login user
@@ -120,12 +113,11 @@ const handleSignIn = async () => {
       } else {
         console.log("✅ Partner Login");
       }
-
     } else {
       setError(data.message || "Invalid email or password");
     }
-
   } catch (err) {
+    console.error("Login request failed:", err);
     setError("Could not connect to server. Please try again.");
   } finally {
     setLoading(false);
@@ -281,9 +273,8 @@ function Dashboard({ setTab, setViewDeal }) {
 
   const fetchDashboard = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/dashboard");
-      const data = await response.json();
-      setDashboardData(data);
+      const response = await api.get("/dashboard");
+      setDashboardData(response.data);
     } catch (error) {
       console.error(error);
     }
@@ -291,9 +282,8 @@ function Dashboard({ setTab, setViewDeal }) {
 
   const fetchDeals = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/deals");
-      const data = await response.json();
-      if (data.success) setRecentDeals(data.deals);
+      const response = await api.get("/deals");
+      if (response.data.success) setRecentDeals(response.data.deals);
     } catch (error) {
       console.error(error);
     }
@@ -422,8 +412,8 @@ function DealsTab({ setTab, setViewDeal }) {
     setLoading(true);
     setFetchError("");
     try {
-      const response = await fetch("http://localhost:5000/api/deals");
-      const data = await response.json();
+      const response = await api.get('/deals');
+      const data = response.data;
       if (data.success) {
         setDeals(data.deals);
       } else {
@@ -512,19 +502,13 @@ function SendEmailModal({ defaultTo, dealBrand, onClose }) {
     setStatus("sending");
 
     try {
-      const res = await fetch("http://localhost:5000/api/send-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          to,
-          subject,
-          message,
-        }),
+      const res = await api.post("/send-email", {
+        to,
+        subject,
+        message,
       });
 
-      const data = await res.json();
+      const data = res.data;
 
       if (data.success) {
         setStatus("success");
@@ -761,9 +745,9 @@ function DealDetail({ dealKey, onStageChange }) {
 
   const loadDeal = () => {
     if (!dealKey) return;
-    fetch("http://localhost:5000/api/deals")
-      .then((r) => r.json())
-      .then((data) => {
+    api.get("/deals")
+      .then((r) => {
+        const data = r.data;
         if (data.success) {
           const found = data.deals.find((deal) => deal.id === dealKey);
           if (found) setD(found);
@@ -779,12 +763,10 @@ function DealDetail({ dealKey, onStageChange }) {
   const updateStage = async (newStageLabel) => {
     setUpdatingStage(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/deals/${dealKey}/stage`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage: newStageLabel }),
+      const response = await api.put(`/deals/${dealKey}/stage`, {
+        stage: newStageLabel,
       });
-      const result = await res.json();
+      const result = response.data;
       if (result.success) {
         setD((prev) => ({ ...prev, stage: newStageLabel }));
         if (onStageChange) onStageChange();
@@ -981,28 +963,24 @@ function RegisterDeal() {
   const submitDeal = async () => {
     setSubmitting(true);
     try {
-      await fetch("http://localhost:5000/api/deals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          shopify_store_url: form.url,
-          brand_name: form.brand,
-          industry: form.industry,
-          monthly_orders: form.orders,
-          monthly_revenue: form.revenue,
-          has_app: form.hasApp,
-          contact_name: form.contact,
-          contact_role: form.role,
-          contact_email: form.email,
-          contact_phone: form.phone,
-          contact_linkedin: form.linkedin,
-          best_time: form.time,
-          mobile_traffic: form.mobile,
-          reasons: form.reasons,
-          notes: form.notes,
-          plan: form.plan,
-          stage: 1,
-        }),
+      await api.post("/deals", {
+        shopify_store_url: form.url,
+        brand_name: form.brand,
+        industry: form.industry,
+        monthly_orders: form.orders,
+        monthly_revenue: form.revenue,
+        has_app: form.hasApp,
+        contact_name: form.contact,
+        contact_role: form.role,
+        contact_email: form.email,
+        contact_phone: form.phone,
+        contact_linkedin: form.linkedin,
+        best_time: form.time,
+        mobile_traffic: form.mobile,
+        reasons: form.reasons,
+        notes: form.notes,
+        plan: form.plan,
+        stage: 1,
       });
     } catch (error) {
       console.error(error);
@@ -1141,9 +1119,8 @@ function CommissionsTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/commissions")
-      .then((r) => r.json())
-      .then((data) => { setCommData(data); setLoading(false); })
+    api.get("/commissions")
+      .then((r) => { setCommData(r.data); setLoading(false); })
       .catch((err) => { console.error(err); setLoading(false); });
   }, []);
 
@@ -1378,9 +1355,9 @@ function ResourcesTab() {
   };
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/resources")
-      .then((res) => res.json())
-      .then((data) => {
+    api.get("/resources")
+      .then((res) => {
+        const data = res.data;
         if (data.success) setResources(data.resources);
         else setFetchError("Failed to load resources.");
         setLoading(false);
@@ -1447,12 +1424,8 @@ function EditProfileModal({ partner, onClose, onSaved }) {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch(`http://localhost:5000/api/profile/${partner.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
+      const res = await api.post(`/profile/${partner.id}`, form);
+      const data = res.data;
       if (data.success) {
         onSaved(data.partner);
         onClose();
@@ -1513,16 +1486,12 @@ function ChangePasswordModal({ partnerId, onClose }) {
     }
     setStatus("saving");
     try {
-      const res = await fetch("http://localhost:5000/api/profile/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          partner_id: partnerId,
-          oldPassword: form.oldPassword,
-          newPassword: form.newPassword,
-        }),
+      const res = await api.post("/profile/change-password", {
+        partner_id: partnerId,
+        oldPassword: form.oldPassword,
+        newPassword: form.newPassword,
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setStatus("success");
       } else {
@@ -1582,9 +1551,8 @@ function ProfileTab({ partner, onPartnerUpdate }) {
   const [togglingWhatsapp, setTogglingWhatsapp] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/dashboard")
-      .then((r) => r.json())
-      .then((data) => setProfileData(data))
+    api.get("/dashboard")
+      .then((r) => setProfileData(r.data))
       .catch(console.error);
   }, []);
 
@@ -1594,9 +1562,9 @@ function ProfileTab({ partner, onPartnerUpdate }) {
   useEffect(() => {
     const pid = currentPartner?.id;
     if (!pid) return;
-    fetch(`http://localhost:5000/api/profile/${pid}/notifications`)
-      .then((r) => r.json())
-      .then((data) => {
+    api.get(`/profile/${pid}/notifications`)
+      .then((r) => {
+        const data = r.data;
         if (data.success) {
           setEmailNotifications(data.email_notifications);
           setWhatsappAlerts(data.whatsapp_alerts);
@@ -1623,12 +1591,10 @@ function ProfileTab({ partner, onPartnerUpdate }) {
     const next = !emailNotifications;
     setTogglingEmail(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/profile/${currentPartner.id}/notifications`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_notifications: next }),
+      const res = await api.patch(`/profile/${currentPartner.id}/notifications`, {
+        email_notifications: next,
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) setEmailNotifications(data.email_notifications);
     } catch (err) {
       console.error(err);
@@ -1642,12 +1608,10 @@ function ProfileTab({ partner, onPartnerUpdate }) {
     const next = !whatsappAlerts;
     setTogglingWhatsapp(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/profile/${currentPartner.id}/notifications`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ whatsapp_alerts: next }),
+      const res = await api.patch(`/profile/${currentPartner.id}/notifications`, {
+        whatsapp_alerts: next,
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) setWhatsappAlerts(data.whatsapp_alerts);
     } catch (err) {
       console.error(err);
@@ -1792,9 +1756,9 @@ function Portal({ onSignOut, partner: initialPartner }) {
 
 // Notifications
 useEffect(() => {
-  fetch("http://localhost:5000/api/notifications")
-    .then((r) => r.json())
-    .then((data) => {
+  api.get("/notifications")
+    .then((r) => {
+      const data = r.data;
       if (data.success) {
         setNotifications(data.notifications);
         setUnreadCount(data.notifications.length);
@@ -1809,9 +1773,7 @@ useEffect(() => {
 
   const checkAgreement = async () => {
     try {
-      const response = await axios.get(
-        `http://localhost:5000/api/partner/agreement/${partner.id}`
-      );
+      const response = await api.get(`/partner/agreement/${partner.id}`);
 
       if (!response.data.agreement_accepted) {
         setShowAgreement(true);
@@ -1967,12 +1929,8 @@ function ApplicationForm({ onBack }) {
     setErrorMsg("");
     setStatus("submitting");
     try {
-      const res = await fetch("http://localhost:5000/api/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
+      const res = await api.post('/apply', form);
+      const data = res.data;
       if (data.success) {
         setStatus("success");
       } else {

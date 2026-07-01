@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "axios";
+import api from "../api/axios";
 export default function AgreementModal({ partner, onAgree }) {
   const [checked, setChecked] = useState(false);
   const [signature, setSignature] = useState("");
@@ -125,13 +125,10 @@ export default function AgreementModal({ partner, onAgree }) {
   onClick={async () => {
     console.log("Partner:", partner);
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/partner/agreement",
-        {
-          partner_id: partner?.id,
-          signature: signature,
-        }
-      );
+      const response = await api.post("/partner/agreement", {
+        partner_id: partner?.id,
+        signature: signature,
+      });
 
       if (response.data.success) {
         onAgree(signature);
